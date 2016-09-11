@@ -1,0 +1,21 @@
+# tmp files and binaries
+*.o
+*.output
+
+cool-parse.h
+cool-parse.cc
+cool.tab.h
+cool-lex.cc
+lextest.cc
+parser-phase.cc
+dumptype.cc
+tree.cc
+cool-tree.cc
+tokens-lex.cc
+
+stringtab.cc
+handle_flags.cc
+utilities.cc
+
+lexer
+parser
