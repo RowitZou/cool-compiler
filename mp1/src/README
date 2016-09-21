@@ -1,0 +1,107 @@
+cool.flex文件生成的词法分析器，实现了对COOL程序词法的分析。
+
+以下简要说明几条COOL规则：
+1. COOL程序包括关键字，标识符，整数常量，字符串常量，注释，运算符，空白符。
+2. 关键字一共有19个，它们都是大小写不敏感。true和false除外，它们必须以小写字母开头。
+3. 标识符由字母、数字和下划线组成，以小写字母开头的是变量或实例，以大写字母开头的是类名。
+4. 整数常量都由数字构成。
+5. 字符串常量包括在“”中，其中不能有null和EOF，转义符\后除了\t,\b,\n,\f,其他都跳脱\输出原字符。在\后才能正常换行，否则会报错。字符串不能过长。
+6. 注释包括“--”和(**)型注释，其间不能包含EOF。注释可以嵌套。
+7. 空白符包括空格，\f,\n,\r,\t,\v。
+8. 运算符参考COOL_manual，此处不再赘述。
+
+cool.flex实现过程：
+
+1. 处理标识符，关键字，运算符，空白符，无效字符以及整数常量的token。
+
+   如类名标识符：<INITIAL>{typeid}     {yylval.symbol = idtable.add_string(yytext);return (TYPEID);}
+   其中，<INITIAL>表示在初始状态下识别后续的类名，之后通过stringtab.h里定义的方法，将类名标识符加入idtable中，通过yylyal返回。不考虑类名过长的情况。
+   
+   其余的处理方案类似，详见cool.flex里的实现。
+
+2. 处理注释。
+
+   --注释要考虑的错误处理较复杂，故单独处理，增加一个comment的状态。每当在初始状态下识别到(*,则进入comment状态。
+   --通过引入对comment的计数来实现嵌套注释，当comment计数为0时，进入INITIAL状态。
+   --“--”型注释较为简单，遇到--符号，则直到换行或者文件末尾，都为注释内容。   
+      <INITIAL>("--")[^\n]*  {} 
+   --若在comment状态下读到EOF(即文件结束符)，则返回错误信息。
+      <COMMENT><<EOF>> {                       
+         yylval.error_msg = "EOF in comment";
+         BEGIN(INITIAL);   
+         return (ERROR);   
+      }
+   --在INITIAL状态读到*)，表示遇到未匹配的注释符，返回错误信息。
+     <INITIAL>"*)" {
+       yylval.error_msg = "Unmatched *)";
+       return (ERROR);
+     }
+
+3. 处理字符串常量。
+
+   --字符串常量的错误处理较复杂，故单独处理，增加一个string的状态。每当在初始状态下识别到“，则进入string状态。
+     <INITIAL>[\"] {                 //进入STRING状态，并进行一些初始化
+       BEGIN(STRING);
+       string_buf_ptr = string_buf;  //初始化string_buf_ptr的指针,指向string_buf的第一个字符
+       string_buf_valid = MAX_STR_CONST;  //string_buf剩余空间为最大
+       string_error = false;   //无字符串错误
+       null_error = false;     //无空字符错误
+     }
+   --若在字符串里遇到EOF，直接返回错误信息，进入INITIAL状态。
+     <STRING><<EOF>> {
+      yylval.error_msg = "EOF in string constant";
+      BEGIN(INITIAL);
+      return (ERROR);
+     }
+   --用到了一个string_buf字符串数组，作为读取的字符串常量的缓冲区，等到读取”，表示字符串结束。
+   --遇到空字符，无论是否在转义符之后，都生成错误信息，等到字符串结束后，再返回此错误信息。
+     <STRING>[\0] {
+      yylval.error_msg = "String contains null character";
+      null_error = true;
+      string_error = true;
+     }
+      
+     <STRING>[\\](.|{line_feed}) {
+        switch (yytext[1]) {
+        ...
+       case '\0':              
+       yylval.error_msg = "String contains null character";
+       null_error = true;
+       string_error = true;
+       break;
+        ...
+       }
+      }
+   --string_buf大小有上限，如果字符串大小超过此上限，则生成错误信息，等到字符串结束才返回错误信息，此处在string_write里实现。
+     int string_write(char *str, unsigned int len) {
+        if (len < string_buf_valid) {
+         ...
+        } else {  //若剩余空间不够，则生成错误信息
+           if(!null_error){    //若已经有了null错误信息，不再生成字符串过长的错误信息
+            string_error = true;
+            yylval.error_msg = "String constant too long";
+           }
+          return -1;
+        }
+     }
+   --如果遇到字符串过长又包含NULL字符，优先返回NULL的错误信息。所以设置了一个null_error的BOOL量，若已有NULL的错误，忽略字符串过长的信息。
+   --一旦进入STRING状态，则设置string_error为false，表示无字符串错误。之后如果遇到字符串过长或者包含无效字符NULL，则置为true。
+   --若字符串结束(遇到”)，如果string_error为true，返回错误信息，否则返回此string_buf，写入stringtable，作为一个token。
+   --若字符串里面包含非转义的换行，则返回错误信息，进入INITIAL状态，直接开始下一行的词法分析。
+     <STRING>{line_feed} {
+       BEGIN(INITIAL);
+       curr_lineno++;
+       yylval.error_msg = "Unterminated string constant";
+       return (ERROR);
+     }
+   --在示例的lexer中，如果遇到“\<<EOF>>，则会出现不明输出："\#1.....，之前我也遇到类似的问题，不过是输出：\#1......，不带开始的引号。
+     添加了如下语句后，输出就正常：
+      <STRING>[\\]            {}
+     因为之前的分析里面没有处理转义符\后直接EOF的情况，所以会出现这种问题。
+     而示例中的字符串读取，估计是把引号"也读进了string_buf，故会出现"\的符号。
+
+4. 记录行号。
+
+   --每一次读到换行符\n,便使curr_lineno加1。
+
+

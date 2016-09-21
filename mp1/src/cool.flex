@@ -42,11 +42,11 @@ extern YYSTYPE cool_yylval;
  *  Add Your own definitions here
  */
 
-unsigned int comment = 0;       //The number of comments
-unsigned int string_buf_valid;  //The remaining size of string buff
-bool string_error;              //if string_error is true, there exists an error
-int string_write(char *, unsigned int);  //write the string buffer, the result is a string token
-bool null_error;             //string contains null character
+unsigned int comment = 0;       //记录注释的个数
+unsigned int string_buf_valid;  //记录字符串缓冲数组剩余的空间，用来判断字符串常量是否过长
+bool string_error;              //若string_error为ture，表明存在字符串错误
+int string_write(char *, unsigned int);  //填充字符串缓冲数组string_buf
+bool null_error;             //若null_error为true，则表明字符串常量里出现null无效字符
 
 %}
 
@@ -62,7 +62,7 @@ low_letter  [a-z]
 digit       [0-9]
 line_feed   [\n]
 underscore  "_"
-typeid      {up_letter}({letter}|{digit}|{underscore})*
+typeid      {up_letter}({letter}|{digit}|{underscore})* 
 objectid    {low_letter}({letter}|{digit}|{underscore})*
 delim       [ \f\r\t\v]
 ws          {delim}+
@@ -90,8 +90,10 @@ of          [Oo][Ff]
 not         [Nn][Oo][Tt]
 true        "t"[Rr][Uu][Ee]
 
-%x COMMENT
-%x STRING
+  /* 注释状态 */
+%x COMMENT     
+  /*字符串状态*/
+%x STRING      
 
 %%
 
@@ -110,77 +112,77 @@ true        "t"[Rr][Uu][Ee]
   *     with the correct line number
   */
 
- /*record the curr_lineno*/
+ /*遇到换行符则记录行号*/
 <INITIAL,COMMENT>{line_feed} {
    curr_lineno++;
 }
 
- /*comments begin*/
+ /*"(*"表明注释状态开始*/
 <INITIAL>"(*" {
-   comment++;
-   BEGIN(COMMENT);
+   comment++;  //注释个数加1
+   BEGIN(COMMENT); //开始注释状态
 }
 
- /*EOF in comments*/
+ /*注释中遇到EOF*/
 <COMMENT><<EOF>> {                       
   yylval.error_msg = "EOF in comment";
-  BEGIN(INITIAL);
-  return (ERROR);
+  BEGIN(INITIAL);   //回到起始状态
+  return (ERROR);   //返回错误信息，不为此注释生成token
 }
 
-<COMMENT>[*]/[^)]     {}         //only '*', no ')' followed
-<COMMENT>[(]/[^*]     {}         //only '(', no '*' followed
-<COMMENT>[^\n*(]      {}         //other characters in comments
+<COMMENT>[*]/[^)]     {}         //注释中没有连续的*)符，表明注释未结束
+<COMMENT>[(]/[^*]     {}         //注释中没有连续的(*符，表明新注释未开始
+<COMMENT>[^\n*(]      {}         //注释中遇到其他字符
 
- /* mutipul comments */
+ /* 注释中遇到新注释，即遇到(* */
 <COMMENT>"(*" {
-  comment++;
+  comment++;   //注释个数加1
 }
 
- /* "*)" is the end of a comment  */
+ /* 一个注释结束，即遇到*)  */
 <COMMENT>"*)" {
-  comment--;
-  if (comment == 0) 
-    BEGIN(INITIAL);
+  comment--;     //注释个数减1
+  if (comment == 0)   //若comment为0，表明注释状态已结束
+    BEGIN(INITIAL);   
 }
- /* unmatched comment terminator  */
+ /* 在起始状态遇到*)，即在注释之外遇到*),返回错误信息 */
 <INITIAL>"*)" {
   yylval.error_msg = "Unmatched *)";
   return (ERROR);
 }
 
-  /*comments in type of "--"*/
+  /*以"--"为格式的注释*/
 <INITIAL>("--")[^\n]*  {}    
 
- /* encounter a quarter, represents the begin of a string constant */
+ /* 遇到“，表明字符串常量开始*/
 <INITIAL>[\"] {
   BEGIN(STRING);
-  string_buf_ptr = string_buf;  //initial the string_buf_ptr
-  string_buf_valid = MAX_STR_CONST;  //initial the string_buf_valid
-  string_error = false;   //there is no string error
-  null_error = false;
+  string_buf_ptr = string_buf;  //初始化string_buf_ptr的指针,指向string_buf的第一个字符
+  string_buf_valid = MAX_STR_CONST;  //string_buf剩余空间为最大
+  string_error = false;   //无字符串错误
+  null_error = false;     //无空字符错误
 }
 
- /* EOF in string constant  */
+ /* 若字符串中有EOF，直接返回错误信息 */
 <STRING><<EOF>> {
   yylval.error_msg = "EOF in string constant";
   BEGIN(INITIAL);
   return (ERROR);
 }
 
- /* Write the string buf, until it is full */
+ /* 遇到正常字符，写入string_buf，直到字符串结束再返回*/
 <STRING>[^\n\0\\\"]* {
   string_write(yytext, strlen(yytext)) ; 
 }
 
- /* String contains null character */
+ /* 遇到空字符，生成错误信息，直到字符串结束再返回 */
 <STRING>[\0] {
   yylval.error_msg = "String contains null character";
   null_error = true;
   string_error = true;
 }
 
- /* illegal line feed */
+ /* 非法换行，生成错误信息并返回，从下一行恢复词法分析*/
 <STRING>{line_feed} {
   BEGIN(INITIAL);
   curr_lineno++;
@@ -188,12 +190,14 @@ true        "t"[Rr][Uu][Ee]
   return (ERROR);
 }
 
+ /* 处理转义符\的情况 */
 <STRING>[\\](.|{line_feed}) {
   
   char ch;
-  /*  legal line feed in string constant */
+  /*  合法换行  */
   if(yytext[1]=='\n')
       curr_lineno++;
+  /* 处理特殊的字符 */
   switch (yytext[1]) {
     case 'n':
       ch = '\n';
@@ -211,22 +215,23 @@ true        "t"[Rr][Uu][Ee]
       ch = '\f';
       string_write(&ch,1);
       break;
-    case '\0':
+    case '\0':              //遇到\0,生成错误信息，直到字符串结束再返回
       yylval.error_msg = "String contains null character";
       null_error = true;
       string_error = true;
       break;
-    default:
+    default:                //遇到正常字符则\无效
       string_write(&yytext[1], 1);
   }
 }
- /* handle the only '\' in the string */
+ /* 处理以\结尾的情况 */
 <STRING>[\\]            {}
 
+ /* 在字符串状态下，遇到”，进入初始状态，若没有错误信息，则返回string token，否则返回错误信息 */
 <STRING>[\"] {
   BEGIN(INITIAL);
   if (!string_error) {
-    yylval.symbol = stringtable.add_string(string_buf, string_buf_ptr-string_buf);
+    yylval.symbol = stringtable.add_string(string_buf, string_buf_ptr-string_buf);  //填好stringtable
     return (STR_CONST);
   }
   else{
@@ -277,21 +282,22 @@ true        "t"[Rr][Uu][Ee]
 <INITIAL>{false}      {yylval.boolean = false; return (BOOL_CONST);}
 
 <INITIAL>{typeid}     {yylval.symbol = idtable.add_string(yytext);return (TYPEID);}
-<INITIAL>{objectid}   {yylval.symbol = idtable.add_string(yytext);return (OBJECTID);}
-<INITIAL>{int_const}  {yylval.symbol = inttable.add_string(yytext);return (INT_CONST);}
+<INITIAL>{objectid}   {yylval.symbol = idtable.add_string(yytext);return (OBJECTID);}  //填好idtable
+<INITIAL>{int_const}  {yylval.symbol = inttable.add_string(yytext);return (INT_CONST);} //填好inttable
 
-<INITIAL>.            {yylval.error_msg = yytext ; return (ERROR);}
+<INITIAL>.            {yylval.error_msg = yytext ; return (ERROR);}  //遇到无效字符，返回错误信息
 
 %%
 
+ /* 填充字符串缓冲数组，形成一个string token */
 int string_write(char *str, unsigned int len) {
   if (len < string_buf_valid) {
     strncpy(string_buf_ptr, str, len);
     string_buf_ptr += len;
     string_buf_valid -= len;
     return 0;
-  } else {
-    if(!null_error){
+  } else {  //若剩余空间不够，则生成错误信息
+    if(!null_error){    //若已经有了null错误信息，不再生成字符串过长的错误信息
       string_error = true;
       yylval.error_msg = "String constant too long";
       }
