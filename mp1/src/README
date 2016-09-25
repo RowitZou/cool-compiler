@@ -25,9 +25,10 @@ cool.flex实现过程：
    --通过引入对comment的计数来实现嵌套注释，当comment计数为0时，进入INITIAL状态。
    --“--”型注释较为简单，遇到--符号，则直到换行或者文件末尾，都为注释内容。   
       <INITIAL>("--")[^\n]*  {} 
-   --若在comment状态下读到EOF(即文件结束符)，则返回错误信息。
+   --若在comment状态下读到EOF(即文件结束符)，comment置为0，（第三次提交修改了此BUG），返回错误信息。
       <COMMENT><<EOF>> {                       
          yylval.error_msg = "EOF in comment";
+         comment = 0;
          BEGIN(INITIAL);   
          return (ERROR);   
       }

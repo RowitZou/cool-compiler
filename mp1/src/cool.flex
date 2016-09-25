@@ -126,6 +126,7 @@ true        "t"[Rr][Uu][Ee]
  /*注释中遇到EOF*/
 <COMMENT><<EOF>> {                       
   yylval.error_msg = "EOF in comment";
+  comment = 0;
   BEGIN(INITIAL);   //回到起始状态
   return (ERROR);   //返回错误信息，不为此注释生成token
 }
