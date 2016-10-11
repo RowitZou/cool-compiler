@@ -1,0 +1,33 @@
+Grading Scanner...
+[2/2] lextestb1.test: spotcheck illegal characters and as a side effect white space. the file contains all printable chars less ",all non-printable chars less \0
+[1/1] lextestb2.test: test whether the scanner correctly detects the beginning of a legal token at the end of an illegal token
+[1/1] lextestc1.test: spotcheck for unnested comments
+[2/2] lextestc2.test: spotcheck for nested (* *) comments
+[2/2] lextestc3.test: spotcheck for comment errors the EOF in comment error
+[2/2] lextestc4.test: spotcheck for comment errors
+[1/1] lexteste1.test: empty file
+[4/4] lextestf1.test: test.cl file. EOF in comment error
+[2/2] lextesti1.test: spotcheck for object identifiers (true/false previously checked) and for keywords in object identifiers
+[2/2] lextesti2.test: spotcheck for type identifiers and for keywords in type identifiers
+[2/2] lextesti3.test: spotcheck for some identifier/operator/punctuation boundary conditions
+[2/2] lextestk1.test: spotcheck for one version of each non constant keyword
+[2/2] lextestk2.test: spotcheck case insensitivity for non constant keywords
+[1/1] lextestk3.test: spotcheck for boolean keywords
+[2/2] lextestk4.test: spotcheck case insensitivity for constant keywords
+[2/2] lextesto1.test: single character operators
+[2/2] lextesto2.test: multi-character operators
+[2/2] lextestp1.test: punctuation
+[2/2] lextestp2.test: spotcheck some punctuation boundaries
+[2/2] lextestp3.test: spotcheck some operator/punctuation boundaries
+[2/2] lextests1.test: spotcheck for keywords, punctuation and comment characters inside srtings
+[2/2] lextests2.test: spotcheck for string length
+[3/3] lextests3.test: spotcheck for escapes, tabs, and control-characters in strings spotcheck for escaped and unescaped newlines in strings
+[2/2] lextests4.test: spotcheck EOF in string error
+[3/3] lextests5.test: spotcheck for string length when last char is escaped
+[2/2] lextestw1.test: spotcheck whitespace
+[1/1] lextestz1.test: spotcheck some integers
+[2/2] lextestz2.test: spotcheck some integer/operator/identifier boundaries
+[2/2] zerostring.test: Check whether the lexer correctly handles '\0' embedded in string constants.
+[2/2] multifile1.test multifile2.test: Check whether the lexer correctly handles multiple files.
+----------------------------------
+Total for Lexer = [59/59]
