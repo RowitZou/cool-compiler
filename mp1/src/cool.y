@@ -92,20 +92,42 @@ extern int VERBOSE_ERRORS;
       documentation for details). */
 
 /* Declare types for the grammar's non-terminals. */
+/* 定义的一些非终结符如下  */
 %type <program> program
 %type <classes> class_list
 %type <class_> class
-
-/* You will want to change the following line. */
-%type <features> dummy_feature_list
+%type <features> feature_list
+%type <feature> feature
+%type <expression> expr
+%type <expression> let_expr
+%type <expressions> multi_expr
+%type <expressions> block_expr
+%type <expression> none_expr
+%type <formal> formal
+%type <formals> formal_list_none
+%type <formals> formal_list
+%type <cases> case_list
+%type <case_> case_single
 
 /* Precedence declarations go here. */
-
+/* 根据cool规定的算符优先级，加上IN的优先级规定，处理let的二义性  */
+%left IN   
+%right ASSIGN
+%right NOT
+%nonassoc LE '<' '='
+%left  '+' '-'
+%left  '*' '/'
+%nonassoc ISVOID
+%right '~'
+%left '@'
+%left '.'
 
 %%
 /* 
    Save the root of the abstract syntax tree in a global variable.
 */
+
+/* 根据cool-manual中给出的语法结构作为基础，设计如下LALR文法 */
 program : class_list { ast_root = program($1); }
         ;
 
@@ -117,16 +139,144 @@ class_list
         ;
 
 /* If no parent is specified, the class inherits from the Object class. */
-class  : CLASS TYPEID '{' dummy_feature_list '}' ';'
+class  : CLASS TYPEID '{' feature_list '}' ';'
                 { $$ = class_($2,idtable.add_string("Object"),$4,
                               stringtable.add_string(curr_filename)); }
-        | CLASS TYPEID INHERITS TYPEID '{' dummy_feature_list '}' ';'
+        | CLASS TYPEID INHERITS TYPEID '{' feature_list '}' ';'
                 { $$ = class_($2,$4,$6,stringtable.add_string(curr_filename)); }
         ;
 
 /* Feature list may be empty, but no empty features in list. */
-dummy_feature_list:        /* empty */
+feature_list:        /* empty */
                 {  $$ = nil_Features(); }
+        | feature_list feature 
+                {  $$ = append_Features($1,single_Features($2)); }
+        ;
+
+feature : OBJECTID ':' TYPEID ';'
+                {  $$ = attr($1,$3,no_expr());  }
+        | OBJECTID ':' TYPEID ASSIGN expr ';'
+                {  $$ = attr($1,$3,$5); }
+        | OBJECTID '(' formal_list_none ')' ':' TYPEID '{' expr '}' ';'
+                {  $$ = method($1,$3,$6,$8); }
+        ;
+
+formal_list_none :  /*empty*/
+                {  $$ = nil_Formals(); }
+        | formal_list
+                {  $$ = $1; }
+        ;
+
+formal_list : formal
+                {  $$ = single_Formals($1); }
+        | formal_list ',' formal
+                {  $$ = append_Formals($1,single_Formals($3)); }
+        ;
+
+formal : OBJECTID ':' TYPEID
+                {  $$ = formal($1,$3); }
+        ;
+
+expr    : OBJECTID ASSIGN expr
+                {  $$ = assign($1,$3);  }
+        | expr '@' TYPEID '.' OBJECTID '(' ')'
+                {  $$ = static_dispatch($1,$3,$5,nil_Expressions()); }
+        | expr '@' TYPEID '.' OBJECTID '(' multi_expr ')'
+                {  $$ = static_dispatch($1,$3,$5,$7); }
+        | expr '.' OBJECTID '(' ')'
+                {  $$ = dispatch($1,$3,nil_Expressions()); }
+        | expr '.' OBJECTID '(' multi_expr ')'
+                {  $$ = dispatch($1,$3,$5); }
+        | OBJECTID '(' ')'
+                {  $$ = dispatch(object(idtable.add_string("self")),$1,nil_Expressions()); }
+        | OBJECTID '(' multi_expr ')'
+                {  $$ = dispatch(object(idtable.add_string("self")),$1,$3); }
+        | IF expr THEN expr ELSE expr FI
+                {  $$ = cond($2,$4,$6); }
+        | WHILE expr LOOP expr POOL
+                {  $$ = loop($2,$4); }
+        | '{' block_expr '}'
+                {  $$ = block($2); }
+        | LET OBJECTID ':' TYPEID none_expr let_expr
+                {  $$ = let($2,$4,$5,$6); }
+        | LET OBJECTID ':' TYPEID ASSIGN expr let_expr
+                {  $$ = let($2,$4,$6,$7); }
+        | CASE expr OF case_list ESAC
+                {  $$ = typcase($2,$4); }
+        | NEW TYPEID
+                {  $$ = new_($2); }
+        | ISVOID expr
+                {  $$ = isvoid($2); }
+        | expr '+' expr
+                {  $$ = plus($1,$3); }
+        | expr '-' expr
+                {  $$ = sub($1,$3); }
+        | expr '*' expr
+                {  $$ = mul($1,$3); }
+        | expr '/' expr
+                {  $$ = divide($1,$3); }
+        | '~' expr
+                {  $$ = neg($2); }
+        | expr '<' expr 
+                {  $$ = lt($1,$3); }
+        | expr LE expr
+                {  $$ = leq($1,$3); }
+        | expr '=' expr
+                {  $$ = eq($1,$3); }
+        | NOT expr
+                {  $$ = comp($2); }
+        | '(' expr ')'
+                {  $$ = $2; }
+        | OBJECTID
+                {  $$ = object($1); }
+        | INT_CONST
+                {  $$ = int_const($1); }
+        | STR_CONST 
+                {  $$ = string_const($1); }
+        | BOOL_CONST
+                {  $$ = bool_const($1); }
+        ;
+
+/* block_expr 定义{}内的表达式  */
+block_expr :    expr ';'
+                {  $$ = single_Expressions($1); }
+        | block_expr expr ';'
+                {  $$ = append_Expressions($1,single_Expressions($2)); }
+        ;
+
+/* let的定义式为let(ID,ID,expr,expr),此处将第二个expr扩展成以下的let_expr  */
+let_expr  :  IN expr 
+                {  $$ = $2; }
+        | ',' OBJECTID ':' TYPEID none_expr let_expr
+                {  $$ = let($2,$4,$5,$6); }
+        | ',' OBJECTID ':' TYPEID ASSIGN expr let_expr
+                {  $$ = let($2,$4,$6,$7); }
+        ;
+
+/* 
+ * 如果不加none_expr非终结符，则当let语句中缺少赋值动作时，let_expr右句型的文法动作是
+ * $$ = let($2,$4,no_expr(),$5)，此时会出现行号错误的问题
+ */
+none_expr : 
+                {  $$ = no_expr(); }
+        ;
+
+/* 处理方法调用时的参数传递 */
+multi_expr : expr
+                {  $$ = single_Expressions($1); }
+        | multi_expr ',' expr
+                {  $$ = append_Expressions($1,single_Expressions($3)); }
+        ;
+
+/* case的多情况处理 */
+case_list: case_single
+                {  $$ = single_Cases($1); }
+        |  case_list case_single
+                {  $$ = append_Cases($1,single_Cases($2)); }
+        ;
+
+case_single : OBJECTID ':' TYPEID DARROW expr ';'
+                {  $$ = branch($1,$3,$5); }
         ;
 
 /* end of grammar */
