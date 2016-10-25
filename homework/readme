@@ -1,0 +1,7 @@
+用gcc编译test1.c,会报如下错误：
+error: break statement not within loop or switch
+这是一个控制流类型的错误。
+
+用gcc编译test2.c，会报如下错误：
+error: redeclaration of 'a' with no linkage
+这是一个违反唯一性的错误。
