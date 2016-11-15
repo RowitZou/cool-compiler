@@ -104,7 +104,6 @@ extern int VERBOSE_ERRORS;
 %type <expressions> block_expr
 %type <expression> none_expr
 %type <formal> formal
-%type <formals> formal_list_none
 %type <formals> formal_list
 %type <cases> case_list
 %type <case_> case_single
@@ -121,56 +120,77 @@ extern int VERBOSE_ERRORS;
 %right '~'
 %left '@'
 %left '.'
-
 %%
 /* 
    Save the root of the abstract syntax tree in a global variable.
 */
 
 /* 根据cool-manual中给出的语法结构作为基础，设计如下LALR文法 */
-program : class_list { ast_root = program($1); }
+program : class_list 
+                { @$ = @1; ast_root = program($1);  }
         ;
 
 class_list
-        : class            /* single class */
+        :  class           // single class 
                 { $$ = single_Classes($1); }
-        | class_list class /* several classes */
+        | class_list class // several classes 
                 { $$ = append_Classes($1,single_Classes($2)); }
+        | error ';'
+                { yyerrok; }
+        | error '}'
+                { yyerrok; }
+        | class_list error ';'
+                { yyerrok; }
+        | class_list error '}'
+                { yyerrok; }
         ;
 
-/* If no parent is specified, the class inherits from the Object class. */
-class  : CLASS TYPEID '{' feature_list '}' ';'
+// If no parent is specified, the class inherits from the Object class. 
+class  :  CLASS TYPEID '{' feature_list '}' ';'
                 { $$ = class_($2,idtable.add_string("Object"),$4,
                               stringtable.add_string(curr_filename)); }
-        | CLASS TYPEID INHERITS TYPEID '{' feature_list '}' ';'
+        | CLASS TYPEID INHERITS TYPEID '{' feature_list '}' ';' 
                 { $$ = class_($2,$4,$6,stringtable.add_string(curr_filename)); }
+        | CLASS TYPEID '{' feature_list '}' error
+                { yyerrok; }
+        | CLASS TYPEID INHERITS TYPEID '{' feature_list '}' error
+                { yyerrok; }
+        | CLASS error '{' error '}' ';'
+                { yyerrok; }
+        | CLASS error '{' error '}'  
+                { yyerrok; } 
         ;
-
 /* Feature list may be empty, but no empty features in list. */
 feature_list:        /* empty */
                 {  $$ = nil_Features(); }
         | feature_list feature 
                 {  $$ = append_Features($1,single_Features($2)); }
-        ;
-
+        | feature_list error ';'
+                { yyerrok; }
+        | feature_list error
+                {  }
+;
 feature : OBJECTID ':' TYPEID ';'
                 {  $$ = attr($1,$3,no_expr());  }
         | OBJECTID ':' TYPEID ASSIGN expr ';'
                 {  $$ = attr($1,$3,$5); }
-        | OBJECTID '(' formal_list_none ')' ':' TYPEID '{' expr '}' ';'
+        | OBJECTID '(' formal_list ')' ':' TYPEID '{' expr '}' ';'
                 {  $$ = method($1,$3,$6,$8); }
-        ;
+        | OBJECTID '(' formal_list ')' ':' TYPEID '{' error '}' 
+                {}
+        | OBJECTID '(' formal_list ')' error '{' error '}' ';' 
+                { yyerrok; };
 
-formal_list_none :  /*empty*/
-                {  $$ = nil_Formals(); }
-        | formal_list
-                {  $$ = $1; }
-        ;
-
-formal_list : formal
+formal_list : 
+                {  $$ = nil_Formals(); } 
+        | formal
                 {  $$ = single_Formals($1); }
         | formal_list ',' formal
                 {  $$ = append_Formals($1,single_Formals($3)); }
+        | formal_list ',' error
+                { yyerrok; }
+        | error 
+                {}
         ;
 
 formal : OBJECTID ':' TYPEID
@@ -195,7 +215,7 @@ expr    : OBJECTID ASSIGN expr
                 {  $$ = cond($2,$4,$6); }
         | WHILE expr LOOP expr POOL
                 {  $$ = loop($2,$4); }
-        | '{' block_expr '}'
+        | '{' block_expr '}' 
                 {  $$ = block($2); }
         | LET OBJECTID ':' TYPEID none_expr let_expr
                 {  $$ = let($2,$4,$5,$6); }
@@ -242,6 +262,14 @@ block_expr :    expr ';'
                 {  $$ = single_Expressions($1); }
         | block_expr expr ';'
                 {  $$ = append_Expressions($1,single_Expressions($2)); }
+        | block_expr error ';'
+                { yyerrok; }
+        | block_expr error
+                {}
+        | error ';'
+                { yyerrok; }
+        | error
+                {}
         ;
 
 /* let的定义式为let(ID,ID,expr,expr),此处将第二个expr扩展成以下的let_expr  */
@@ -251,6 +279,10 @@ let_expr  :  IN expr
                 {  $$ = let($2,$4,$5,$6); }
         | ',' OBJECTID ':' TYPEID ASSIGN expr let_expr
                 {  $$ = let($2,$4,$6,$7); }
+        | error let_expr
+                {}
+        | IN error
+                {}
         ;
 
 /* 
@@ -266,16 +298,20 @@ multi_expr : expr
                 {  $$ = single_Expressions($1); }
         | multi_expr ',' expr
                 {  $$ = append_Expressions($1,single_Expressions($3)); }
+        | multi_expr ',' error
+                { yyerrok; }
+        | error
+                {}
         ;
 
 /* case的多情况处理 */
-case_list: case_single
+case_list: case_single ';'
                 {  $$ = single_Cases($1); }
-        |  case_list case_single
+        |  case_list case_single ';'
                 {  $$ = append_Cases($1,single_Cases($2)); }
         ;
 
-case_single : OBJECTID ':' TYPEID DARROW expr ';'
+case_single : OBJECTID ':' TYPEID DARROW expr 
                 {  $$ = branch($1,$3,$5); }
         ;
 

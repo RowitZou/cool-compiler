@@ -1,3 +1,16 @@
+cool.y文件生成的parser, 实现了对COOL程序语法的分析。
+
+因为生成的parser不含有shift-reduce和reduce-reduce错误，故冲突分析不再赘述。
+
+以下说明几条parser处理错误的特性：
+1. 对于feature中的formal,　能正确识别其中的错误。如　a (b:Int, c): Int　中，能识别c处的错误并恢复分析。
+2. 对于参数传递时用到的表达式multi_expr，能正确识别其中的错误。如a (b+w,+3)中, 能识别'+'的错误并恢复分析。
+3. 对于没有正确结束一个类的，即class末尾不含‘;’的情况，能正确结束这个类并从下一个class开始分析。
+4. 对于feature_list中的错误，除了能够识别属性错误(包括';'丢失)，还能进一步对方法中的expr进行粒度更细的错误恢复。
+5. 对于{}中的错误，能够做到嵌套识别。如{ {a;}  {+a;};}。
+6. 对于let,reference的parser中似乎没有对它进行粒度更细的错误恢复。这里的parser可以处理嵌套的let错误并恢复分析。
+7. 测试例均在bison_test_bad.cl中。
+
 cool.flex文件生成的词法分析器，实现了对COOL程序词法的分析。
 
 以下简要说明几条COOL规则：
