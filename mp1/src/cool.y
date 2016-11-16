@@ -136,13 +136,13 @@ class_list
         | class_list class // several classes 
                 { $$ = append_Classes($1,single_Classes($2)); }
         | error ';'
-                { yyerrok; }
+                {}
         | error '}'
-                { yyerrok; }
+                {}
         | class_list error ';'
-                { yyerrok; }
+                {}
         | class_list error '}'
-                { yyerrok; }
+                {}
         ;
 
 // If no parent is specified, the class inherits from the Object class. 
@@ -156,9 +156,9 @@ class  :  CLASS TYPEID '{' feature_list '}' ';'
         | CLASS TYPEID INHERITS TYPEID '{' feature_list '}' error
                 { yyerrok; }
         | CLASS error '{' error '}' ';'
-                { yyerrok; }
+                {}
         | CLASS error '{' error '}'  
-                { yyerrok; } 
+                {} 
         ;
 /* Feature list may be empty, but no empty features in list. */
 feature_list:        /* empty */
@@ -166,10 +166,10 @@ feature_list:        /* empty */
         | feature_list feature 
                 {  $$ = append_Features($1,single_Features($2)); }
         | feature_list error ';'
-                { yyerrok; }
+                {}
         | feature_list error
-                {  }
-;
+                {}
+        ;
 feature : OBJECTID ':' TYPEID ';'
                 {  $$ = attr($1,$3,no_expr());  }
         | OBJECTID ':' TYPEID ASSIGN expr ';'
@@ -178,8 +178,9 @@ feature : OBJECTID ':' TYPEID ';'
                 {  $$ = method($1,$3,$6,$8); }
         | OBJECTID '(' formal_list ')' ':' TYPEID '{' error '}' 
                 {}
-        | OBJECTID '(' formal_list ')' error '{' error '}' ';' 
-                { yyerrok; };
+        | OBJECTID '(' formal_list ')' error '{' error '}'  
+                {}
+        ;
 
 formal_list : 
                 {  $$ = nil_Formals(); } 
@@ -263,11 +264,11 @@ block_expr :    expr ';'
         | block_expr expr ';'
                 {  $$ = append_Expressions($1,single_Expressions($2)); }
         | block_expr error ';'
-                { yyerrok; }
+                {}
         | block_expr error
                 {}
         | error ';'
-                { yyerrok; }
+                {}
         | error
                 {}
         ;

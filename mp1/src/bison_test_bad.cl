@@ -13,6 +13,9 @@ class A{
     test1 () : BOOL{
         A+3;
     };
+    test1 () asd{
+        re+1;
+    };
     test : Int <- error+;
     test : Int
 };
