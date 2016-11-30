@@ -63,19 +63,27 @@
     1.此checker为文件流保存了状态，有opened和closed两种状态，定义为StreamState.
     同时，将文件流SymbolRef到StreamState的映射，定义为一种新的map种类的
     ProgramStateRef。此checker把状态存入StreamMap中，同时要将对ProgramState产生
-    影响的状态转变存入CheckerContext中。
+    影响的状态转变加入CheckerContext中。
 
-    2.当存在打开文件的Call时，将状态置为opened。
-      当存在关闭文件的Call时，若状态为opened，则将状态置为closed。
+    2.
+    (a)当存在打开文件的Call时，将StreamState置为opened。生成State存入StreamMap。
+    (b)当存在关闭文件的Call时，若StreamState为opened，则将其置为closed，生成
+       State存入StreamMap。
+    (c)当出现DoubleClosed或Leaked的bug，状态转为Error。
+    (d)当出现DeadSymbol，将它们的状态从StreamMap中移除。
+    (e)当出现Escaped Symbol，并不能确认fclose是否存在，将它们的状态从StreamMap
+       中移除。
 
-    3.在checkPreCall中，当检测到存在关闭文件的Call时，要检查状态是否为opened。
-      在checkDeadSymbols中，当一个作用域结束时，要检查无效Symbol的状态。
+    3.
+    (a)在checkPreCall中，当检测到存在关闭文件的Call时，要检查状态是否为opened。
+    (b)在checkDeadSymbols中，当一个作用域结束时，要检查无效Symbol的状态，以确认
+       是否出现leak。
 
     4.对于escape的Symbol，如果不能确定是否存在将文件关闭的Call，就将其从StreamMap
     中移除，并假定该文件能在某处关闭。它的实现避免了误报Error。每当程序中存在
     checker不能追踪的Symbol时，例如for循环中escape的Symbol，此checker就乐观处理。
 
-    5.能识别的bug有：文件多次关闭，文件未关闭。
+    5.能识别的bug有：文件多次关闭，已打开的文件未关闭。
       例：
 
       #include<stdio.h>
