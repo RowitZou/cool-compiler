@@ -1,0 +1,34 @@
+1. 以下是clang静态分析器还能检测的一些典型缺陷。
+
+  alpha.core.BoolAssignment       检测是否将非{0,1}值赋给布尔量
+  alpha.core.FixedAddr            检测是否将固定地址赋给一个指针
+  alpha.cplusplus.VirtualCall     在构造和析构过程中，检测对虚函数的调用
+  alpha.deadcode.UnreachableCode  检测不可达的代码
+  alpha.security.ArrayBound       警告数组越界
+  alpha.security.ReturnPtrRange   检测返回给调用者的指针是否指向有效作用域
+  alpha.unix.PthreadLock          简单检测线程锁
+  alpha.unix.SimpleStream         检测文件操作的错误
+  alpha.unix.cstring.BufferOverlap
+                                  检测两个缓冲区是否有重叠
+  alpha.unix.cstring.NotNullTerminated
+                                  检测字符串是否以null结束
+  alpha.unix.cstring.OutOfBounds  检测字符串操作时是否越界
+  core.DivideZero                 检测除0错误
+  core.NullDereference            检测对空指针的间接访问
+  core.StackAddressEscape         检测栈地址是否溢出
+  core.builtin.NoReturnFunctions  检测函数是否正常返回
+  core.uninitialized.Assign       检测赋值操作中是否存在未初始化的值
+  core.uninitialized.Branch       检测条件跳转判断是否包含未初始化的值
+  core.uninitialized.CapturedBlockVariable
+                                  检测作用域内是否包含未初始化的值
+  core.uninitialized.UndefReturn  检测返回值中是否存在未初始化的值
+  cplusplus.NewDeleteLeaks        检测内存泄露
+  deadcode.DeadStores             检测是否存在已赋值但从未使用过的变量
+  nullability.NullPassedToNonnull
+                                  警告将空指针传递给一个非空类型的指针
+  nullability.NullReturnedFromNonnull
+                                  警告将空指针从一个非空返回类型的函数中返回
+  unix.API                        检测对unix中的API的调用错误
+
+
+

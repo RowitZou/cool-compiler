@@ -1,0 +1,131 @@
+3.1
+
+    (a) AST.svg是根据test.c通过语法分析构造的抽象语法树。clang静态分析的
+    绝大部分工作都是在AST的基础上实现的。
+
+    (b) CFG.svg是在AST的基础上，将控制流等细节表示出来，代表的是程序执行
+    到的位置，即ProgramPoint。便于静态分析时的控制流检查。
+
+    (c) ExplodedGraph.svg是扩展图，在CFG的基础上加入了state，同时将程序点
+    相同但state不同的结点视作不同的结点。相比CFG，Explodedgraph对于路径敏
+    感的控制流和状态的分析更加细化。同时与各checker的工作有紧密联系。
+
+3.2
+
+    1. Checker主要在CFG上进行。
+
+    2. Checker记录程序的状态，将状态保存在GenericDataMap中。
+
+    3.
+    (a)构造一个MemRegion代表x的左值，构造一个SVal代表常数3，将此SVal绑定
+    到x的MemRegion上。
+
+    (b)构造一个MemRegion代表y的左值，构造一个SVal代表常数4，将此SVal绑定
+    到y的MemRegion上。
+
+    (c)构造一个SVal表示x的MemRegion，这里的SVal是一个符号，记为$0，构造一
+    个MemRegion代表p的左值，将$0代表的值(即x的地址)绑定到p的MemRegion上。
+
+    (d)构造一个SVal代表目前绑定在p的MemRegion中的值，SVal是一个符号，记为
+    $1，构造一个SVal代表常数1，将$1与1相加，把结果记为一个新的SVal，为$2。
+    然后得到值为$2的MemRegion中绑定的值，赋给一个新的SVal，记为$3。
+
+    (e)构造一个MemRegion代表z的左值，将$3代表的值绑定到z的MemRegion上。
+
+        过程中产生8个Symbolic values，其中有4个表示MemRegion，其余4个分别
+    为：$0代表x的地址，$1代表p的值，$2代表$1+1的值，$3代表地址$2中存有的值。
+
+3.3
+
+    1.unique_ptr，只允许基础指针的一个所有者，能转移所有权，不能复制或共享。
+      使用场合：单线程、安全性要求高的场合。
+
+      shared_ptr，采用引用计数的智能指针，它会保留指针直到引用计数为0才删除。
+      使用场合：想要将一个原始指针分配给多个所有者。
+
+      weak_ptr，结合shared_ptr使用的特例智能指针。它提供对一个或多个shared_ptr
+      实例拥有的对象的访问，但不参与引用计数。
+      使用场合：想要观察某个对象但不需要其保持活动状态，某些场合下，需要断
+      开shared_ptr实例间的循环引用。
+
+    2.LLVM 为了提高运行效率，减少代码量和执行时的规模，减少内存等资源的使用，
+      在编译时默认关闭了RTTI选项，所以LLVM的多态没有使用C++提供的基于虚表的
+      多态技术，而是使用了CRTP(静态多态)。
+
+    3.(a)可声明为ArrayRef   (b)可声明为StringRef
+
+    4.匿名命名空间中的内容只在本编译单元中可见。这样可以允许更多有冲突的优
+      化方案，以及规避可能存在的同名冲突。类似于C中的static，但匿名命名空间
+      可以用于class，而static不能修饰class。
+
+3.4
+
+    1.此checker为文件流保存了状态，有opened和closed两种状态，定义为StreamState.
+    同时，将文件流SymbolRef到StreamState的映射，定义为一种新的map种类的
+    ProgramStateRef。此checker把状态存入StreamMap中，同时要将对ProgramState产生
+    影响的状态转变存入CheckerContext中。
+
+    2.当存在打开文件的Call时，将状态置为opened。
+      当存在关闭文件的Call时，若状态为opened，则将状态置为closed。
+
+    3.在checkPreCall中，当检测到存在关闭文件的Call时，要检查状态是否为opened。
+      在checkDeadSymbols中，当一个作用域结束时，要检查无效Symbol的状态。
+
+    4.对于escape的Symbol，如果不能确定是否存在将文件关闭的Call，就将其从StreamMap
+    中移除，并假定该文件能在某处关闭。它的实现避免了误报Error。每当程序中存在
+    checker不能追踪的Symbol时，例如for循环中escape的Symbol，此checker就乐观处理。
+
+    5.能识别的bug有：文件多次关闭，文件未关闭。
+      例：
+
+      #include<stdio.h>
+      void test_1(){
+        FILE *p = fopen("foo","r");
+      }
+      void test_2(){
+        FILE *p = fopen("foo","r");
+        fclose(p);
+        fclose(p);
+      }
+
+      局限性：当遇到escape的文件指针，有些错误无法检测。
+              对关闭的文件进行操作的错误，无法检测。
+      例：
+
+      #include<stdio.h>
+      void test_1(){
+        FILE *p = fopen("foo","w");
+        fclose(p);
+        fprintf(p,"hello_world");
+      }
+      void test_2(){
+        FILE *p = fopen("foo","r");
+        for(int i = 0; i < 20; ++i){
+            if(i > 30)
+                fclose(p);
+        }
+      }
+
+3.5
+
+    1.(a)首先要在lib/StaticAnalyzer/Checkers中添加对应Checker的cpp实现文件。
+
+      (b)在实现Checker的文件中添加注册Checker的代码。
+
+      (c)要为Checker选择合适的包，并在lib/Staticanalyzer/Checkers/Checkers.td
+      对应的包段添加对Checker的定义。
+
+      (d)要在lib/StaticAnalyzer/Checkers/CMakeLists.txt中添加源码文件，使其
+      对CMake可见。
+
+    2.
+    此函数的作用是调用TableGen工具，处理Checkers.td来产生checker的部分类定义，
+    生成部分源文件和头文件。
+
+    3.
+    td文件包含TableGen的代码，由一系列记录(record)组成。作用是生成clang的一
+    部分C++源码。通过LLVM内置的TableGen工具，处理td文件并生成C++的头文件或源
+    文件。通过这种方式，可以灵活地描述领域特异的信息，减少我们重复编写描述信
+    息的代码量，还可以减少出错的几率，也使构造领域特异信息的工作更加方便。
+
+

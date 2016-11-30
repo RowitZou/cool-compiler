@@ -1,0 +1,9 @@
+1. CPU: Intel Core i7-4558U @ 2.80GHz *4
+2. 内存大小：8G (外加swap空间4G，共12G)
+3. 操作系统：Ubuntu 16.04 LTS
+4. cmake目标：make
+5. cmake build type：Debug
+6. 编译线程数：1
+7. 编译耗时：125min 34s
+8. 内存占用峰值：7.8G
+9. 遇到的问题：由于在编译时规避了一些同学遇到的问题，编译一次通过。
