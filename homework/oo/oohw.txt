@@ -1,0 +1,132 @@
+1.类成员被编译的特征
+
+    在oohw.cpp中，定义了如下两个类：
+
+    class test_1{
+    public:
+        void fff(int i){
+        }
+        int gggg(){
+            return 1;
+        }
+    };
+
+    class test2{
+    public:
+       char kk(char a, int b){
+           return 'a';
+        }
+    };
+
+    定义了如下函数：
+
+    void ssss(char a){
+    }
+
+    当调用类里面的方法，或者调用普通的函数时，在反汇编代码中能观察到
+它们的调用情况，同时能发现它们的名字做了变换。具体变换如下：
+
+    void fff(int i)             -->  _ZN6test_13fffEi
+
+    int gggg()                  -->  _ZN6test_14ggggEv
+
+    char kk(char a, int b)      -->  _ZN5test22kkEci
+
+    void ssss(char a)           -->  _Z4ssssc
+
+    以第一个为例，_Z是gcc编译器的特有前缀，N表示这属于嵌套的名字，6
+表示类名长度为6，test_1即为该方法所属的类名，3表示方法名长度为3，fff
+即为方法名，E表示嵌套的名字结束，i表明方法的参数类型是int。
+
+    一般规律：
+
+    (a)如果是一个类中的方法，生成的格式是：
+
+        编译器前缀 + “N” + 类名长度 + 类名 + 方法名长度
+        + 方法名 + “E” + 参数类型。
+
+    (b)如果是普通的函数，名字生成的格式是：
+
+        编译器前缀 + 函数名长度 + 函数名 + 参数类型。
+
+    这就能解释方法和函数名的重载机制，编译器通过将它们的名字按一定的
+规则进行转换，从而产生无冲突的名字。
+
+
+2. 静态和动态连接的代码特征
+
+    (a) 在oohw.cpp中，调用了cout。在动态连接的情况下，反汇编代码如下：
+
+    cout<<"Hello\n";
+  4007f9:	be 74 09 40 00       	mov    $0x400974,%esi
+  4007fe:	bf 60 10 60 00       	mov    $0x601060,%edi
+  400803:	e8 a8 fe ff ff       	callq  4006b0 <_ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_PKc@plt>
+
+    查看地址为4006b0的内容，可得：
+00000000004006b0 <_ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_PKc@plt>:
+  4006b0:	ff 25 82 09 20 00    	jmpq   *0x200982(%rip)        # 601038 <_GLOBAL_OFFSET_TABLE_+0x38>
+  4006b6:	68 04 00 00 00       	pushq  $0x4
+  4006bb:	e9 a0 ff ff ff       	jmpq   400660 <_init+0x20>
+
+    此地址位于PLT表中，PLT表是一个过程连接表，它通过引用GOT表中的函
+数的绝对地址，把控制转移到实际的函数。Global Offset Table (GOT) 是保
+存库函数地址的区域。在这里，可知GOT表的基址是601000.
+
+    由上可知，cout对应的名字是PLT表的一个表项。没有实际要执行的代码。
+真正的函数代码在GOT表项指向的地址中。
+
+
+    (b) 在静态连接的情况下，反汇编代码如下：
+
+     cout<<"Hello\n";
+  400de1:	be e4 d9 54 00       	mov    $0x54d9e4,%esi
+  400de6:	bf 40 ac 7a 00       	mov    $0x7aac40,%edi
+  400deb:	e8 20 45 00 00       	callq  405310 <_ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_PKc>
+
+    查看地址为405310的内容，可得：
+
+0000000000405310 <_ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_PKc>:
+  405310:	55                   	push   %rbp
+  405311:	53                   	push   %rbx
+  405312:	48 89 fd             	mov    %rdi,%rbp
+  405315:	48 83 ec 08          	sub    $0x8,%rsp
+  405319:	48 85 f6             	test   %rsi,%rsi
+  40531c:	74 2a                	je     405348 <_ZStlsISt11char_traitsIcEERSt13basic_ostreamIcT_ES5_PKc+0x38>
+  40531e:	48 89 f3             	mov    %rsi,%rbx
+  405321:	48 89 f7             	mov    %rsi,%rdi
+  405324:	e8 97 75 0c 00       	callq  4cc8c0 <strlen>
+  405329:	48 89 de             	mov    %rbx,%rsi
+  40532c:	48 89 ef             	mov    %rbp,%rdi
+  40532f:	48 89 c2             	mov    %rax,%rdx
+  405332:	e8 e9 fa ff ff       	callq  404e20 <_ZSt16__ostream_insertIcSt11char_traitsIcEERSt13basic_ostreamIT_T0_ES6_PKS3_l>
+  405337:	48 83 c4 08          	add    $0x8,%rsp
+  40533b:	48 89 e8             	mov    %rbp,%rax
+  40533e:	5b                   	pop    %rbx
+  40533f:	5d                   	pop    %rbp
+  405340:	c3                   	retq   
+  405341:	0f 1f 80 00 00 00 00 	nopl   0x0(%rax)
+  405348:	48 8b 07             	mov    (%rdi),%rax
+  40534b:	48 03 78 e8          	add    -0x18(%rax),%rdi
+  40534f:	8b 77 20             	mov    0x20(%rdi),%esi
+  405352:	83 ce 01             	or     $0x1,%esi
+  405355:	e8 36 c8 ff ff       	callq  401b90 <_ZNSt9basic_iosIcSt11char_traitsIcEE5clearESt12_Ios_Iostate>
+  40535a:	48 83 c4 08          	add    $0x8,%rsp
+  40535e:	48 89 e8             	mov    %rbp,%rax
+  405361:	5b                   	pop    %rbx
+  405362:	5d                   	pop    %rbp
+  405363:	c3                   	retq   
+  405364:	66 2e 0f 1f 84 00 00 	nopw   %cs:0x0(%rax,%rax,1)
+  40536b:	00 00 00
+  40536e:	66 90                	xchg   %ax,%ax
+
+    由上可知，cout对应的名字是代码段中的一个函数。并且存在实际要执行
+的代码。
+
+    综上，动态连接产生的代码简短，它们可以通过PLT和GOT机制访问共享库，
+不过由于运行时要去连接相应的库，会花费一定的时间。相当于用时间换取空
+间。而静态连接会产生程序所要用的所有代码，并把它们都加入可执行文件中，
+运行起来会快一些，但是占用磁盘和内存。相当于用空间换取时间。
+
+
+
+
