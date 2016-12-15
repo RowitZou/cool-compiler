@@ -168,12 +168,12 @@ class CgenEnvironment
 private:
 	// mapping from variable names to memory locations
 	cool::SymbolTable<Symbol,operand> var_table;
-
+	
 	// Keep counters for unique name generation in the current method
-	int block_count;
 	int tmp_count;
+	int block_count;
 	int ok_count;
-
+	
 	// ADD CODE HERE
 	CgenNode *cur_class;
 
@@ -185,7 +185,15 @@ public:
 	string new_name();
 	string new_ok_label();
 	const string new_label(const std::string& prefix, bool increment);
-
+	
+	void set_block_count(const int block_count_temp);
+	void set_ok_count(const int ok_count_temp);
+	void set_tmp_count(const int tmp_count_temp);
+	const int get_block_count();
+	const int get_ok_count();
+	const int get_tmp_count();
+	operand make_new_operand(op_type type);
+	
 	// Used in provided code for the (case..of) construct
 	string next_label;
 	operand branch_operand;    

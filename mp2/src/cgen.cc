@@ -10,7 +10,7 @@
 #include <string>
 #include <sstream>
 
-// 
+//
 extern int cgen_debug;
 
 //////////////////////////////////////////////////////////////////////
@@ -23,7 +23,7 @@ extern int cgen_debug;
 // own definitions as you see fit.
 //
 //////////////////////////////////////////////////////////////////////
-EXTERN Symbol 
+EXTERN Symbol
 	// required classes
 	Object,
 	IO,
@@ -119,7 +119,7 @@ static void initialize_constants(void)
 // generator.
 //
 //*********************************************************
-void program_class::cgen(ostream &os) 
+void program_class::cgen(ostream &os)
 {
 	initialize_constants();
 	class_table = new CgenClassTable(classes,os);
@@ -153,8 +153,8 @@ void CgenClassTable::setup_external_functions()
 	op_type i32_type(INT32), i8ptr_type(INT8_PTR), vararg_type(VAR_ARG);
 	vector<op_type> strcmp_args;
 	strcmp_args.push_back(i8ptr_type);
-	strcmp_args.push_back(i8ptr_type);	
-	vp.declare(*ct_stream, i32_type, "strcmp", strcmp_args); 
+	strcmp_args.push_back(i8ptr_type);
+	vp.declare(*ct_stream, i32_type, "strcmp", strcmp_args);
 
 	// setup function: external int printf(sbyte*, ...)
 	vector<op_type> printf_args;
@@ -189,7 +189,7 @@ void CgenClassTable::install_basic_classes()
 	// A few special class names are installed in the lookup table but not
 	// the class list. Thus, these classes exist, but are not part of the
 	// inheritance hierarchy.
-	 
+
 	// No_class serves as the parent of Object and the other special classes.
 	Class_ noclasscls = class_(No_class,No_class,nil_Features(),filename);
 	install_special_class(new CgenNode(noclasscls, CgenNode::Basic, this));
@@ -200,7 +200,7 @@ void CgenClassTable::install_basic_classes()
 	Class_ selftypecls = class_(SELF_TYPE,No_class,nil_Features(),filename);
 	install_special_class(new CgenNode(selftypecls, CgenNode::Basic, this));
 	delete selftypecls;
-	// 
+	//
 	// Primitive types masquerading as classes. This is done so we can
 	// get the necessary Symbols for the innards of String, Int, and Bool
 	//
@@ -214,7 +214,7 @@ void CgenClassTable::install_basic_classes()
 	Class_ primboolcls = class_(prim_bool,No_class,nil_Features(),filename);
 	install_special_class(new CgenNode(primboolcls, CgenNode::Basic, this));
 	delete primboolcls;
-	// 
+	//
 	// The Object class has no parent class. Its methods are
 	//        cool_abort() : Object   aborts the program
 	//        type_name() : Str       returns a string representation of class name
@@ -224,15 +224,15 @@ void CgenClassTable::install_basic_classes()
 	// are already built in to the runtime system.
 	//
 	Class_ objcls =
-		class_(Object, 
+		class_(Object,
 		       No_class,
 		       append_Features(
 		       append_Features(
-		       single_Features(method(cool_abort, nil_Formals(), 
+		       single_Features(method(cool_abort, nil_Formals(),
 		                              Object, no_expr())),
 		       single_Features(method(type_name, nil_Formals(),
 		                              String, no_expr()))),
-		       single_Features(method(cool_copy, nil_Formals(), 
+		       single_Features(method(cool_copy, nil_Formals(),
 		                              SELF_TYPE, no_expr()))),
 		       filename);
 	install_class(new CgenNode(objcls, CgenNode::Basic, this));
@@ -240,10 +240,10 @@ void CgenClassTable::install_basic_classes()
 
 //
 // The Int class has no methods and only a single attribute, the
-// "val" for the integer. 
+// "val" for the integer.
 //
 	Class_ intcls=
-		class_(Int, 
+		class_(Int,
 		       Object,
 		       single_Features(attr(val, prim_int, no_expr())),
 		       filename);
@@ -254,8 +254,8 @@ void CgenClassTable::install_basic_classes()
 // Bool also has only the "val" slot.
 //
 	Class_ boolcls=
-		class_(Bool,  
-		       Object, 
+		class_(Bool,
+		       Object,
 		       single_Features(attr(val, prim_bool, no_expr())),
 		       filename);
 	install_class(new CgenNode(boolcls, CgenNode::Basic, this));
@@ -268,9 +268,9 @@ void CgenClassTable::install_basic_classes()
 //       length() : Int                       length of the string
 //       concat(arg: Str) : Str               string concatenation
 //       substr(arg: Int, arg2: Int): Str     substring
-//       
+//
 	Class_ stringcls =
-		class_(String, 
+		class_(String,
 		       Object,
 		       append_Features(
 		       append_Features(
@@ -282,11 +282,11 @@ void CgenClassTable::install_basic_classes()
 		                              single_Formals(formal(arg, String)),
 		                              String,
 		                              no_expr()))),
-		       single_Features(method(substr, 
+		       single_Features(method(substr,
 		                              append_Formals(
-		                                 single_Formals(formal(arg, Int)), 
+		                                 single_Formals(formal(arg, Int)),
 		                                 single_Formals(formal(arg2, Int))),
-		                              String, 
+		                              String,
 		                              no_expr()))),
 		       filename);
 	install_class(new CgenNode(stringcls, CgenNode::Basic, this));
@@ -294,7 +294,7 @@ void CgenClassTable::install_basic_classes()
 #endif
 
 #ifdef MP3
-// 
+//
 // The IO class inherits from Object. Its methods are
 //        out_string(Str) : SELF_TYPE          writes a string to the output
 //        out_int(Int) : SELF_TYPE               "    an int    "  "     "
@@ -331,9 +331,9 @@ void CgenClassTable::install_classes(Classes cs)
 	}
 }
 
-// 
+//
 // Add this CgenNode to the class list and the lookup table
-// 
+//
 void CgenClassTable::install_class(CgenNode *nd)
 {
 	Symbol name = nd->get_name();
@@ -347,9 +347,9 @@ void CgenClassTable::install_class(CgenNode *nd)
 	addid(name,nd);
 }
 
-// 
+//
 // Add this CgenNode to the special class list and the lookup table
-// 
+//
 void CgenClassTable::install_special_class(CgenNode *nd)
 {
 	Symbol name = nd->get_name();
@@ -479,7 +479,7 @@ void IntEntry::code_def(ostream& s, CgenClassTable* ct)
 //
 // CgenClassTable constructor orchestrates all code generation
 //
-CgenClassTable::CgenClassTable(Classes classes, ostream& s) 
+CgenClassTable::CgenClassTable(Classes classes, ostream& s)
 : nds(0)
 {
 	if (cgen_debug) std::cerr << "Building CgenClassTable" << endl;
@@ -524,13 +524,13 @@ void CgenClassTable::setup_classes(CgenNode *c, int depth)
 	List<CgenNode> *children = c->get_children();
 	for (List<CgenNode> *child = children; child; child = child->tl())
 		setup_classes(child->hd(), depth + 1);
-	
+
 	c->set_max_child(current_tag-1);
 
 	/*
 	if (cgen_debug)
-		std::cerr << "Class " << c->get_name() << " assigned tag " 
-			<< c->get_tag() << ", max child " << c->get_max_child() 
+		std::cerr << "Class " << c->get_name() << " assigned tag "
+			<< c->get_tag() << ", max child " << c->get_max_child()
 			<< ", depth " << c->get_depth() << endl;
 	*/
 }
@@ -568,31 +568,55 @@ void CgenClassTable::code_classes(CgenNode *c)
 
 
 //
-// Create LLVM entry point. This function will initiate our Cool program 
+// Create LLVM entry point. This function will initiate our Cool program
 // by generating the code to execute (new Main).main()
 //
 void CgenClassTable::code_main()
 {
+	ValuePrinter vp(*ct_stream);
+	//return value, whose type is Int
+	op_type i32_type(INT32);
+
+	string str("Main.main() returned %d\n");
+  	const_value strConst(op_arr_type(INT8, str.length()+1),
+	  	 			str, false);
+  	vp.init_constant("main.printout.str", strConst);
+
 	// Define a function main that has no parameters and returns an i32
+	vp.define(i32_type, "main", vector<operand>());
 
 	// Define an entry basic block
+	vp.begin_block("entry");
 
 	// Call Main_main(). This returns int* for phase 1, Object for phase 2
-
+	operand result = vp.call(vector<op_type>(), i32_type,
+					"Main_main", true, vector<operand>());
 
 #ifndef MP3
 	// Get the address of the string "Main_main() returned %d\n" using
-	// getelementptr 
+	// getelementptr
+	global_value ptrString(op_arr_type(INT8_PTR, 25), "main.printout.str");
+	operand pointer = vp.getelementptr(op_arr_type(INT8, str.length()+1) ,ptrString, 
+					int_value(0), int_value(0), op_type(INT8_PTR));
 
 	// Call printf with the string address of "Main_main() returned %d\n"
 	// and the return value of Main_main() as its arguments
+	vector<op_type> printf_arg_types;
+	vector<operand> printf_args;
+
+	printf_arg_types.push_back(op_type(INT8_PTR));
+	printf_arg_types.push_back(op_type(VAR_ARG));
+	printf_args.push_back(pointer);
+	printf_args.push_back(result);
+
+	vp.call(printf_arg_types, i32_type, "printf", true, printf_args);
 
 	// Insert return 0
-
+	vp.ret(int_value(0));
 #else
 	// Phase 2
 #endif
-
+	vp.end_define();
 }
 
 
@@ -679,7 +703,9 @@ void CgenNode::codeGenMainmain()
 	// -- setup or create the environment, env, for translating this method
 	// -- invoke mainMethod->code(env) to translate the method
 	
-
+	CgenEnvironment *env = new CgenEnvironment(*class_table->ct_stream, this);
+	mainMethod->code(env);
+	
 }
 
 #endif
@@ -726,6 +752,37 @@ const std::string CgenEnvironment::new_label(const std::string& prefix,
 	std::string suffix = itos(block_count);
 	block_count += increment;
 	return prefix + suffix;
+}
+
+operand CgenEnvironment::make_new_operand(op_type type) {
+	std::stringstream out;
+	out << "tmp." << (tmp_count++);
+	string name = out.str();
+ 	return operand(type, name);
+}
+
+void CgenEnvironment::set_block_count(const int block_count_tmp) {
+	block_count = block_count_tmp;
+}
+
+const int CgenEnvironment::get_block_count() {
+	return block_count;
+}
+
+void CgenEnvironment::set_ok_count(const int ok_count_tmp) {
+	ok_count = ok_count_tmp;
+}
+
+const int CgenEnvironment::get_ok_count() {
+	return ok_count;
+}
+
+void CgenEnvironment::set_tmp_count(const int tmp_count_tmp) {
+	tmp_count = tmp_count_tmp;
+}
+
+const int CgenEnvironment::get_tmp_count() {
+	return tmp_count;
 }
 
 void CgenEnvironment::add_local(Symbol name, operand &vb) {
@@ -782,9 +839,21 @@ operand get_class_tag(operand src, CgenNode *src_cls, CgenEnvironment *env) {
 void method_class::code(CgenEnvironment *env)
 {
 	if (cgen_debug) std::cerr << "method" << endl;
-
-	// ADD CODE HERE
-
+	
+	ValuePrinter vp(*env->cur_stream);
+	vp.define(op_type(INT32), "Main_main", vector<operand>());
+	vp.begin_block("entry");
+	vp.ret(expr->code(env));
+	
+	vp.begin_block("abort");
+	vp.call(*env->cur_stream, vector<op_type>(), "abort", true, vector<operand>(),
+			 env->make_new_operand(op_type(VOID)));
+	vp.unreachable();
+	vp.end_define();
+	env->set_tmp_count(0);
+	env->set_ok_count(0);
+	env->set_block_count(0);
+	
 }
 
 //
@@ -794,144 +863,274 @@ void method_class::code(CgenEnvironment *env)
 operand assign_class::code(CgenEnvironment *env) 
 { 
 	if (cgen_debug) std::cerr << "assign" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
-	return operand();
+	
+	ValuePrinter vp(*env->cur_stream);
+	operand assign_op = *env->lookup(name);
+	operand expr_op = expr->code(env);
+
+	vp.store(*env->cur_stream, expr_op, assign_op);
+	return expr_op;
 }
 
 operand cond_class::code(CgenEnvironment *env) 
 { 
 	if (cgen_debug) std::cerr << "cond" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
-	return operand();
+	ValuePrinter vp(*env->cur_stream);
+	operand temp_reg;
+	
+	std::fpos<std::char_traits<char>::state_type> pos = env->cur_stream->tellp();
+	int block_count_tmp = env->get_block_count(),
+		ok_count_tmp = env->get_ok_count(),
+		tmp_count_tmp = env->get_tmp_count();
+	operand get_type_op = then_exp->code(env);
+	env->cur_stream->seekp(pos);
+	env->set_block_count(block_count_tmp);
+	env->set_ok_count(ok_count_tmp);
+	env->set_tmp_count(tmp_count_tmp);
+
+	temp_reg = env->make_new_operand(get_type_op.get_type().get_ptr_type());
+	vp.alloca_mem(*env->cur_stream, get_type_op.get_type(), temp_reg);
+
+	string true_label = env->new_label("true.", false);
+	string false_label = env->new_label("false.", false);
+	string end_label = env->new_label("end.", true);
+	operand pred_op = pred->code(env);
+	vp.branch_cond(pred_op, true_label, false_label);
+
+	vp.begin_block(true_label);
+	operand then_op = then_exp->code(env);
+	vp.store(then_op, temp_reg);
+	vp.branch_uncond(end_label);
+
+	vp.begin_block(false_label);
+	operand else_op = else_exp->code(env);
+	vp.store(else_op, temp_reg);
+	vp.branch_uncond(end_label);
+
+	vp.begin_block(end_label);
+	operand result_op = env->make_new_operand(temp_reg.get_type().get_deref_type());
+	vp.load(*env->cur_stream, temp_reg.get_type().get_deref_type(), temp_reg, result_op);
+
+	return result_op;
 }
 
 operand loop_class::code(CgenEnvironment *env) 
 { 
 	if (cgen_debug) std::cerr << "loop" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
-	return operand();
+	
+	ValuePrinter vp(*env->cur_stream);
+
+	string loop_label = env->new_label("loop.", false);
+	vp.branch_uncond(loop_label);
+	vp.begin_block(loop_label);
+	operand pred_op = pred->code(env);
+
+	string true_label = env->new_label("true.", false);
+	string false_label = env->new_label("false.", true);
+	vp.branch_cond(pred_op, true_label, false_label);
+
+	vp.begin_block(true_label);
+	operand true_op = body->code(env);
+	vp.branch_uncond(loop_label);
+
+	vp.begin_block(false_label);
+	return const_value(op_type(INT32), "0", true);
+
 } 
 
 operand block_class::code(CgenEnvironment *env) 
 { 
 	if (cgen_debug) std::cerr << "block" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
-	return operand();
+	
+	operand o;
+	for(int i = body->first(); body->more(i); i = body->next(i)) {
+		o = body->nth(i)->code(env);
+	}
+	return o;
 }
 
 operand let_class::code(CgenEnvironment *env) 
 { 
 	if (cgen_debug) std::cerr << "let" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
-	return operand();
+	
+	ValuePrinter vp(*env->cur_stream);
+	string stringTemp(type_decl->get_string());
+	op_type type = INT32;
+
+	if(stringTemp.compare("Bool") == 0){
+		type = INT1;
+	}
+	else if(stringTemp.compare("Int") == 0){
+		type = INT32;
+	}
+
+	operand init_var_ptr = env->make_new_operand(type.get_ptr_type());
+	vp.alloca_mem(*env->cur_stream, type, init_var_ptr);
+	operand init_var = init->code(env);
+
+	if(!init_var.is_empty()){
+		if (type.get_name() != init_var.get_typename()) {
+			init_var = env->make_new_operand(type);
+			vp.bitcast(*env->cur_stream, init_var, type, init_var);
+		}
+		vp.store(init_var, init_var_ptr);
+	} 
+	else {
+		if(type.get_id() == INT1)
+			vp.store(const_value(type, "false", true), init_var_ptr);
+		else if(type.get_id() == INT32)
+			vp.store(const_value(type, "0", true), init_var_ptr);
+	}
+	env->add_local(identifier, init_var_ptr);
+
+	operand body_op = body->code(env);
+	env->kill_local();
+	return body_op;
+
 }
 
 operand plus_class::code(CgenEnvironment *env) 
 { 
 	if (cgen_debug) std::cerr << "plus" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
-	return operand();
+	
+	ValuePrinter vp(*env->cur_stream);
+	operand o1 = e1->code(env);
+	operand o2 = e2->code(env);
+	operand result = env->make_new_operand(o1.get_type());
+	vp.add(*env->cur_stream, o1, o2, result);
+	return result;
 }
 
 operand sub_class::code(CgenEnvironment *env) 
 { 
 	if (cgen_debug) std::cerr << "sub" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
-	return operand();
+	
+	ValuePrinter vp(*env->cur_stream);
+	operand o1 = e1->code(env);
+	operand o2 = e2->code(env);
+	operand result = env->make_new_operand(o1.get_type());
+	vp.sub(*env->cur_stream, o1, o2, result);
+	return result;
 }
 
 operand mul_class::code(CgenEnvironment *env) 
 { 
 	if (cgen_debug) std::cerr << "mul" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
-	return operand();
+	
+	ValuePrinter vp(*env->cur_stream);
+	operand o1 = e1->code(env);
+	operand o2 = e2->code(env);
+	operand result = env->make_new_operand(o1.get_type());
+	vp.mul(*env->cur_stream, o1, o2, result);
+	return result;
 }
 
 operand divide_class::code(CgenEnvironment *env) 
 { 
 	if (cgen_debug) std::cerr << "div" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
-	return operand();
+	
+	ValuePrinter vp(*env->cur_stream);
+	string ok_label = env->new_ok_label();
+	operand o1 = e1->code(env);
+	operand o2 = e2->code(env);
+
+	operand eq_op = env->make_new_operand(op_type(INT1));
+	vp.icmp(*env->cur_stream, EQ, o2, int_value(0), eq_op);
+	vp.branch_cond(eq_op, "abort", ok_label);
+
+	vp.begin_block(ok_label);
+	operand result = env->make_new_operand(o1.get_type());
+	vp.div(*env->cur_stream, o1, o2, result);
+	return result;
 }
 
 operand neg_class::code(CgenEnvironment *env) 
 { 
 	if (cgen_debug) std::cerr << "neg" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
-	return operand();
+	ValuePrinter vp(*env->cur_stream);
+	operand o1 = e1->code(env);
+	operand result = env->make_new_operand(o1.get_type());
+	vp.sub(*env->cur_stream, int_value(0), o1, result);
+	return result;
+	
 }
 
 operand lt_class::code(CgenEnvironment *env) 
 {
 	if (cgen_debug) std::cerr << "lt" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
-	return operand();
+	
+	ValuePrinter vp(*env->cur_stream);
+	operand o1 = e1->code(env);
+	operand	o2 = e2->code(env);
+	operand result = env->make_new_operand(op_type(INT1));
+	vp.icmp(*env->cur_stream, LT, o1, o2, result);
+	return result;
 }
 
 operand eq_class::code(CgenEnvironment *env) 
 {
 	if (cgen_debug) std::cerr << "eq" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
-	return operand();
+	
+	ValuePrinter vp(*env->cur_stream);
+	operand o1 = e1->code(env);
+	operand o2 = e2->code(env);
+	operand result = env->make_new_operand(op_type(INT1));
+	vp.icmp(*env->cur_stream, EQ, o1, o2, result);
+	return result;
 }
 
 operand leq_class::code(CgenEnvironment *env) 
 {
 	if (cgen_debug) std::cerr << "leq" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
-	return operand();
+	
+	ValuePrinter vp(*env->cur_stream);
+	operand o1 = e1->code(env);
+	operand o2 = e2->code(env);
+	operand result = env->make_new_operand(op_type(INT1));
+	vp.icmp(*env->cur_stream, LE, o1, o2, result);
+	return result;
 }
 
 operand comp_class::code(CgenEnvironment *env) 
 {
 	if (cgen_debug) std::cerr << "complement" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
-	return operand();
+	ValuePrinter vp(*env->cur_stream);
+	operand o1 = e1->code(env);
+	operand result = env->make_new_operand(o1.get_type());
+	vp.xor_in(*env->cur_stream, o1, bool_value(true, true), result);
+	return result;
+	
 }
 
 operand int_const_class::code(CgenEnvironment *env) 
 {
 	if (cgen_debug) std::cerr << "Integer Constant" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
-	return operand();
+	
+	return const_value(op_type(INT32), token->get_string(), true);
 }
 
 operand bool_const_class::code(CgenEnvironment *env) 
 {
 	if (cgen_debug) std::cerr << "Boolean Constant" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
-	return operand();
+	
+	return const_value(op_type(INT1), val ? "true" : "false", true);
 }
 
 operand object_class::code(CgenEnvironment *env) 
 {
 	if (cgen_debug) std::cerr << "Object" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
-	return operand();
+	
+	ValuePrinter vp(*env->cur_stream);
+	operand *op = env->lookup(name);
+	operand result = env->make_new_operand(op->get_type().get_deref_type());
+	vp.load(*env->cur_stream, op->get_type().get_deref_type(), *op, result);
+	return result;
 }
 
 operand no_expr_class::code(CgenEnvironment *env) 
 {
 	if (cgen_debug) std::cerr << "No_expr" << endl;
-	// ADD CODE HERE AND REPLACE "return operand()" WITH SOMETHING 
-	// MORE MEANINGFUL
+
 	return operand();
 }
 
