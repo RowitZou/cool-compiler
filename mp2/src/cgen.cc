@@ -574,7 +574,7 @@ void CgenClassTable::code_classes(CgenNode *c)
 void CgenClassTable::code_main()
 {
 	ValuePrinter vp(*ct_stream);
-	//return value, whose type is Int
+	//return value
 	op_type i32_type(INT32);
 
 	string str("Main.main() returned %d\n");
@@ -754,6 +754,8 @@ const std::string CgenEnvironment::new_label(const std::string& prefix,
 	return prefix + suffix;
 }
 
+//Since make_fresh_operand method in ValuePrinter is not convenient,
+//I define a new method here to make counting-label more reasonable.
 operand CgenEnvironment::make_new_operand(op_type type) {
 	std::stringstream out;
 	out << "tmp." << (tmp_count++);
@@ -761,6 +763,7 @@ operand CgenEnvironment::make_new_operand(op_type type) {
  	return operand(type, name);
 }
 
+//These methods are added in order to get or set the private attributes.
 void CgenEnvironment::set_block_count(const int block_count_tmp) {
 	block_count = block_count_tmp;
 }
@@ -841,15 +844,21 @@ void method_class::code(CgenEnvironment *env)
 	if (cgen_debug) std::cerr << "method" << endl;
 	
 	ValuePrinter vp(*env->cur_stream);
+	
+	//Define the Main_main method
 	vp.define(op_type(INT32), "Main_main", vector<operand>());
 	vp.begin_block("entry");
 	vp.ret(expr->code(env));
 	
+	//Setup the abort call at end of each method
+	//If something wrong, the routine jumps here 
 	vp.begin_block("abort");
 	vp.call(*env->cur_stream, vector<op_type>(), "abort", true, vector<operand>(),
 			 env->make_new_operand(op_type(VOID)));
 	vp.unreachable();
 	vp.end_define();
+
+	//Set the label counts to 0
 	env->set_tmp_count(0);
 	env->set_ok_count(0);
 	env->set_block_count(0);
@@ -865,9 +874,12 @@ operand assign_class::code(CgenEnvironment *env)
 	if (cgen_debug) std::cerr << "assign" << endl;
 	
 	ValuePrinter vp(*env->cur_stream);
+
+	//Get the operand from the var table
 	operand assign_op = *env->lookup(name);
 	operand expr_op = expr->code(env);
 
+	//Store the new value into the var table
 	vp.store(*env->cur_stream, expr_op, assign_op);
 	return expr_op;
 }
@@ -878,12 +890,17 @@ operand cond_class::code(CgenEnvironment *env)
 	ValuePrinter vp(*env->cur_stream);
 	operand temp_reg;
 	
+	//In order to keep track of the type for what I need to alloc for,
+	//I evaluate the code and move the stream buffer back.
 	std::fpos<std::char_traits<char>::state_type> pos = env->cur_stream->tellp();
+	//Store current states
 	int block_count_tmp = env->get_block_count(),
 		ok_count_tmp = env->get_ok_count(),
 		tmp_count_tmp = env->get_tmp_count();
+	//We assume that then_expr and else_expr have the same type
 	operand get_type_op = then_exp->code(env);
 	env->cur_stream->seekp(pos);
+	//Reload states and keep going 
 	env->set_block_count(block_count_tmp);
 	env->set_ok_count(ok_count_tmp);
 	env->set_tmp_count(tmp_count_tmp);
@@ -894,19 +911,23 @@ operand cond_class::code(CgenEnvironment *env)
 	string true_label = env->new_label("true.", false);
 	string false_label = env->new_label("false.", false);
 	string end_label = env->new_label("end.", true);
+	//Compute condition expression and setup branch code
 	operand pred_op = pred->code(env);
 	vp.branch_cond(pred_op, true_label, false_label);
 
+	//Setup true_cond label
 	vp.begin_block(true_label);
 	operand then_op = then_exp->code(env);
 	vp.store(then_op, temp_reg);
 	vp.branch_uncond(end_label);
 
+	//Setup false_cond label
 	vp.begin_block(false_label);
 	operand else_op = else_exp->code(env);
 	vp.store(else_op, temp_reg);
 	vp.branch_uncond(end_label);
 
+	//Setup ending label
 	vp.begin_block(end_label);
 	operand result_op = env->make_new_operand(temp_reg.get_type().get_deref_type());
 	vp.load(*env->cur_stream, temp_reg.get_type().get_deref_type(), temp_reg, result_op);
@@ -920,20 +941,27 @@ operand loop_class::code(CgenEnvironment *env)
 	
 	ValuePrinter vp(*env->cur_stream);
 
+	//Setup loop label to indicate that the loop begins
 	string loop_label = env->new_label("loop.", false);
 	vp.branch_uncond(loop_label);
 	vp.begin_block(loop_label);
+
+	//Evaluate the condition expression
 	operand pred_op = pred->code(env);
 
 	string true_label = env->new_label("true.", false);
 	string false_label = env->new_label("false.", true);
 	vp.branch_cond(pred_op, true_label, false_label);
 
+	//Setup true_cond label
 	vp.begin_block(true_label);
 	operand true_op = body->code(env);
 	vp.branch_uncond(loop_label);
 
+	//Setup false_cond label and keep going
 	vp.begin_block(false_label);
+
+	//The loop return value is constant zero
 	return const_value(op_type(INT32), "0", true);
 
 } 
@@ -941,7 +969,8 @@ operand loop_class::code(CgenEnvironment *env)
 operand block_class::code(CgenEnvironment *env) 
 { 
 	if (cgen_debug) std::cerr << "block" << endl;
-	
+
+	//The return value of block expressions is the same with the last one in block	
 	operand o;
 	for(int i = body->first(); body->more(i); i = body->next(i)) {
 		o = body->nth(i)->code(env);
@@ -957,6 +986,7 @@ operand let_class::code(CgenEnvironment *env)
 	string stringTemp(type_decl->get_string());
 	op_type type = INT32;
 
+	//Judge the correct type of identity
 	if(stringTemp.compare("Bool") == 0){
 		type = INT1;
 	}
@@ -965,9 +995,13 @@ operand let_class::code(CgenEnvironment *env)
 	}
 
 	operand init_var_ptr = env->make_new_operand(type.get_ptr_type());
+	//Allocate fitable size of memory
 	vp.alloca_mem(*env->cur_stream, type, init_var_ptr);
 	operand init_var = init->code(env);
 
+	//check if the <- expr is empty, if not, evaluate. if it is, 
+	//store default values of false and 0 for bool and int respectively 
+	//into the value.
 	if(!init_var.is_empty()){
 		if (type.get_name() != init_var.get_typename()) {
 			init_var = env->make_new_operand(type);
@@ -984,7 +1018,9 @@ operand let_class::code(CgenEnvironment *env)
 	env->add_local(identifier, init_var_ptr);
 
 	operand body_op = body->code(env);
+	//The identities in let is local variable
 	env->kill_local();
+	//Return the body operand
 	return body_op;
 
 }
@@ -1034,10 +1070,13 @@ operand divide_class::code(CgenEnvironment *env)
 	operand o1 = e1->code(env);
 	operand o2 = e2->code(env);
 
+	//if what you are dividing by is 0, go to abort because you
+    //cannot divide by 0
 	operand eq_op = env->make_new_operand(op_type(INT1));
 	vp.icmp(*env->cur_stream, EQ, o2, int_value(0), eq_op);
 	vp.branch_cond(eq_op, "abort", ok_label);
 
+	//if it is not 0, just run divide method.
 	vp.begin_block(ok_label);
 	operand result = env->make_new_operand(o1.get_type());
 	vp.div(*env->cur_stream, o1, o2, result);
@@ -1049,6 +1088,7 @@ operand neg_class::code(CgenEnvironment *env)
 	if (cgen_debug) std::cerr << "neg" << endl;
 	ValuePrinter vp(*env->cur_stream);
 	operand o1 = e1->code(env);
+	//Negate the value by subtracting it from 0
 	operand result = env->make_new_operand(o1.get_type());
 	vp.sub(*env->cur_stream, int_value(0), o1, result);
 	return result;
@@ -1105,14 +1145,14 @@ operand comp_class::code(CgenEnvironment *env)
 operand int_const_class::code(CgenEnvironment *env) 
 {
 	if (cgen_debug) std::cerr << "Integer Constant" << endl;
-	
+	//Return a constant value
 	return const_value(op_type(INT32), token->get_string(), true);
 }
 
 operand bool_const_class::code(CgenEnvironment *env) 
 {
 	if (cgen_debug) std::cerr << "Boolean Constant" << endl;
-	
+	//Return a constant value
 	return const_value(op_type(INT1), val ? "true" : "false", true);
 }
 
